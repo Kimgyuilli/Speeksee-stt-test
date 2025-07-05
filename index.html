@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>실시간 STT 데모</title>
+</head>
+<body>
+  <h1>🎤 실시간 음성 전송</h1>
+  <button id="startBtn">녹음 시작</button>
+  <button id="stopBtn">녹음 종료</button>
+  <div id="result" style="margin-top: 1em; font-size: 1.2em; color: blue;"></div>
+
+  <script type="module">
+    let stream, audioContext, processor, socket;
+
+    // ✅ 실제 JWT 토큰 가져오는 부분 (예: localStorage)
+    const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyMkBleGFtcGxlLmNvbSIsImVtYWlsIjoidXNlcjJAZXhhbXBsZS5jb20iLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzUxNzAzMzgyLCJleHAiOjE3NTE3MDY5ODJ9.XGw8437HC3XbSOzRjn2UXuNKBjspgtntJj72i--_568"
+
+    async function startRecording() {
+      socket = new WebSocket("ws://localhost:8080/ws/stt");
+
+      socket.onopen = async () => {
+        console.log("✅ WebSocket 연결됨");
+
+        const scriptId = 1;
+        const memberId = 1;
+        // 1. AUTH 메시지 전송
+        socket.send(JSON.stringify({
+          type: "AUTH",
+          token: `Bearer ${token}`,
+          memberId: memberId,
+          scriptId: scriptId
+        }));
+
+        // 2. 약간의 지연 후 마이크 스트리밍 시작
+        setTimeout(async () => {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log("🎤 마이크 접근 성공");
+
+            audioContext = new AudioContext({ sampleRate: 16000 });
+            await audioContext.audioWorklet.addModule("linear16-processor.js");
+            console.log("🧩 AudioWorklet 로드 완료");
+
+            const source = audioContext.createMediaStreamSource(stream);
+            processor = new AudioWorkletNode(audioContext, "linear16-processor");
+
+            processor.port.onmessage = (e) => {
+              if (socket.readyState === WebSocket.OPEN) {
+                socket.send(e.data);
+              }
+            };
+
+            source.connect(processor).connect(audioContext.destination);
+            console.log("🎙 녹음 시작");
+
+          } catch (err) {
+            console.error("🚫 마이크 접근 실패:", err);
+          }
+        }, 300);
+      };
+
+      socket.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === "AUTH_SUCCESS") {
+            console.log("🔐 인증 성공");
+          } else if (data.type === "ERROR") {
+            console.error(`❌ 오류: ${data.message}`);
+          } else {
+            console.log("📩 인식 결과:", data.transcript);
+            const resultDiv = document.getElementById("result");
+            if (resultDiv) resultDiv.textContent = `🗣 ${data.transcript}`;
+          }
+        } catch (err) {
+          console.warn("❌ 응답 처리 중 오류:", err);
+        }
+      };
+
+      socket.onerror = (e) => {
+        console.error("🚨 WebSocket 에러:", e);
+      };
+
+      socket.onclose = () => {
+        console.log("🔌 WebSocket 연결 종료");
+      };
+    }
+
+    function stopRecording() {
+      if (processor) processor.disconnect();
+      if (audioContext) audioContext.close();
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close();
+      }
+
+      console.log("🔴 녹음 종료");
+    }
+
+    document.getElementById("startBtn").onclick = startRecording;
+    document.getElementById("stopBtn").onclick = stopRecording;
+  </script>
+</body>
+</html>

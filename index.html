@@ -14,10 +14,10 @@
     let stream, audioContext, processor, socket;
 
     // ✅ 실제 JWT 토큰 가져오는 부분 (예: localStorage)
-    const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyMkBleGFtcGxlLmNvbSIsImVtYWlsIjoidXNlcjJAZXhhbXBsZS5jb20iLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzUxNzAzMzgyLCJleHAiOjE3NTE3MDY5ODJ9.XGw8437HC3XbSOzRjn2UXuNKBjspgtntJj72i--_568"
+    const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc1MTgwOTQ0NiwiZXhwIjoxNzUxODEzMDQ2fQ.bbNeJ1tr3Y8Uz0QsVrylxkW6A72KmMsOuEJc8n2CxT8"
 
     async function startRecording() {
-      socket = new WebSocket("ws://localhost:8080/ws/stt");
+      socket = new WebSocket("ws://54.180.116.11:8080/ws/stt");
 
       socket.onopen = async () => {
         console.log("✅ WebSocket 연결됨");

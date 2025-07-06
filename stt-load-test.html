@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>STT 부하 테스트</title>
+</head>
+<body>
+  <h1>🧪 STT 부하 테스트</h1>
+  <label>클라이언트 수: <input id="clientCount" type="number" value="10" /></label>
+  <button id="startBtn">테스트 시작</button>
+  <button id="stopBtn">모든 연결 종료</button>
+
+  <div id="log" style="margin-top:1em; font-family:monospace;"></div>
+
+  <script>
+    const sockets = [];
+    let intervalIds = [];
+
+    const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc1MTgwOTQ0NiwiZXhwIjoxNzUxODEzMDQ2fQ.bbNeJ1tr3Y8Uz0QsVrylxkW6A72KmMsOuEJc8n2CxT8"; // 여기에 실제 access token을 넣어줘
+
+    function log(msg) {
+      const logDiv = document.getElementById("log");
+      const p = document.createElement("p");
+      p.textContent = msg;
+      logDiv.appendChild(p);
+    }
+
+    function startClients() {
+      const clientCount = parseInt(document.getElementById("clientCount").value, 10);
+      const fakeAudio = new Uint8Array(320); // 대략 20ms 분량 (16000Hz * 2bytes * 0.02초)
+
+      for (let i = 0; i < clientCount; i++) {
+        const socket = new WebSocket("ws://54.180.116.11:8080/ws/stt");
+
+        socket.onopen = () => {
+          log(`🟢 [${i}] 연결됨`);
+
+          // AUTH 메시지 전송
+          socket.send(JSON.stringify({
+            type: "AUTH",
+            token: `Bearer ${token}`,
+            memberId: 1,
+            scriptId: 1
+          }));
+
+          // 1초 후부터 오디오 전송 시작
+          const intervalId = setInterval(() => {
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.send(fakeAudio);
+            }
+          }, 20); // 20ms 간격 전송 (초당 약 50회)
+
+          intervalIds.push(intervalId);
+        };
+
+        socket.onmessage = (e) => {
+          const data = JSON.parse(e.data);
+          if (data.type === "AUTH_SUCCESS") {
+            log(`✅ [${i}] 인증 완료`);
+          } else if (data.type === "ERROR") {
+            log(`❌ [${i}] 오류: ${data.message}`);
+          }
+        };
+
+        socket.onerror = () => {
+          log(`🚨 [${i}] 에러 발생`);
+        };
+
+        socket.onclose = () => {
+          log(`🔌 [${i}] 연결 종료`);
+        };
+
+        sockets.push(socket);
+      }
+    }
+
+    function stopClients() {
+      sockets.forEach((s) => s.close());
+      intervalIds.forEach((id) => clearInterval(id));
+      log("🛑 모든 연결 종료");
+    }
+
+    document.getElementById("startBtn").onclick = startClients;
+    document.getElementById("stopBtn").onclick = stopClients;
+  </script>
+</body>
+</html>

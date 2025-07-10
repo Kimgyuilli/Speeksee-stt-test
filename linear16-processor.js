@@ -5,9 +5,6 @@ class Linear16Processor extends AudioWorkletProcessor {
 
     const samples = input[0]; // mono only
 
-    // 🔍 오디오 샘플 길이 출력
-    console.log("📦 Worklet 수신 샘플 수:", samples.length);
-
     const pcmData = new Int16Array(samples.length);
     for (let i = 0; i < samples.length; i++) {
       let s = samples[i];
